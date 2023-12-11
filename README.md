@@ -1,5 +1,5 @@
 # D3D12SDKVersionPatcher
-A tool that can patch a .exe file exports to enabled DirectX 12 Agility SDK versioning
+A tool that can patch an .exe file exports (actually it will create exports as an exe usually doesn't have any) to enabled DirectX 12 Agility SDK versioning
 
 To use it just run it in command line for example like this:
 
