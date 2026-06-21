@@ -263,10 +263,28 @@ public static class Conversions
             if (s.Length == 0)
                 return false;
 
-            if (options.LenientEnums)
-                s = NormalizeEnumString(s);
+            if (!options.LenientEnums)
+                return Enum.TryParse(enumType, s, ignoreCase: true, out result);
 
-            return Enum.TryParse(enumType, s, ignoreCase: true, out result);
+            // BCL Enum.TryParse can't mix names and numbers in one list, so tokenize and OR the parts ourselves
+            var tokens = s.Split(_enumSeparators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (tokens.Length == 0)
+                return false;
+
+            if (tokens.Length == 1)
+                return TryParseEnumToken(enumType, tokens[0], out result);
+
+            ulong acc = 0;
+            foreach (var token in tokens)
+            {
+                if (!TryParseEnumToken(enumType, token, out var part) || part is null)
+                    return false;
+
+                acc |= EnumToUInt64(part);
+            }
+
+            result = Enum.ToObject(enumType, acc);
+            return true;
         }
 
         // numeric (or another enum) -> enum via the underlying integral type
@@ -279,24 +297,34 @@ public static class Conversions
         return false;
     }
 
-    private static string NormalizeEnumString(string text)
+    private static bool TryParseEnumToken(Type enumType, string token, out object? result)
     {
-        // collapse the alternate separators to ',' and expand 0x.. tokens so Enum.TryParse can do names + numbers + flags
-        var tokens = text.Split(_enumSeparators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (tokens.Length == 0)
-            return text;
-
-        for (var i = 0; i < tokens.Length; i++)
+        // a 0x.. token, a single name and a single decimal number all parse here
+        if (token.StartsWith("0x", StringComparison.OrdinalIgnoreCase) &&
+            ulong.TryParse(token.AsSpan(2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var hex))
         {
-            var token = tokens[i];
-            if (token.StartsWith("0x", StringComparison.OrdinalIgnoreCase) &&
-                ulong.TryParse(token.AsSpan(2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var hex))
-            {
-                tokens[i] = hex.ToString(CultureInfo.InvariantCulture);
-            }
+            result = Enum.ToObject(enumType, hex);
+            return true;
         }
 
-        return string.Join(',', tokens);
+        return Enum.TryParse(enumType, token, ignoreCase: true, out result);
+    }
+
+    private static ulong EnumToUInt64(object enumValue)
+    {
+        var underlying = System.Convert.ChangeType(enumValue, Enum.GetUnderlyingType(enumValue.GetType()), CultureInfo.InvariantCulture);
+        return underlying switch
+        {
+            sbyte v => unchecked((ulong)v),
+            short v => unchecked((ulong)v),
+            int v => unchecked((ulong)v),
+            long v => unchecked((ulong)v),
+            byte v => v,
+            ushort v => v,
+            uint v => v,
+            ulong v => v,
+            _ => 0
+        };
     }
 
     private static bool TryParseBoolean(object? value, ConversionOptions options, out bool result)

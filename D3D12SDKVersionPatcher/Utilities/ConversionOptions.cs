@@ -41,8 +41,8 @@ public class ConversionOptions
     // numeric over/underflow truncates (unchecked) instead of failing the conversion
     public virtual bool TruncateOverflow { get; init; } = true;
 
-    // round fractional inputs to integer targets (banker's rounding, like the old IConvertible path) instead of truncating
-    public virtual bool RoundFloatingToInteger { get; init; }
+    // round fractional inputs to integer targets (banker's rounding, matching DirectN/Convert.ChangeType); set false to truncate toward zero
+    public virtual bool RoundFloatingToInteger { get; init; } = true;
 
     // allow ticks interop both ways: long <-> DateTime/TimeSpan/DateTimeOffset
     public virtual bool DateTimeTicks { get; init; } = true;
