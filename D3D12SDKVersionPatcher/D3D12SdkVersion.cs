@@ -1,7 +1,4 @@
-﻿using System;
-using System.IO;
-using System.Linq;
-using AsmResolver;
+﻿using AsmResolver;
 using AsmResolver.IO;
 using AsmResolver.PE;
 using AsmResolver.PE.Code;
@@ -10,6 +7,9 @@ using AsmResolver.PE.Exports.Builder;
 using AsmResolver.PE.File;
 using AsmResolver.PE.Relocations;
 using AsmResolver.PE.Relocations.Builder;
+using System;
+using System.IO;
+using System.Linq;
 
 namespace D3D12SDKVersionPatcher;
 
@@ -72,6 +72,7 @@ public static class D3D12SdkVersion
         {
             relocBuffer.Add(relocation);
         }
+
         // 2. add virtual address to D3D12SDKPath value as a relocation
         relocBuffer.Add(new BaseRelocation(is32bit ? RelocationType.HighLow : RelocationType.Dir64, exportDataBuffer.ToReference(0)));
 
@@ -80,10 +81,7 @@ public static class D3D12SdkVersion
         reloc.Contents = relocBuffer;
         outputFile.UpdateHeaders();
 
-        // 4. update the base relocation data directory size, UpdateHeaders() doesn't do it.
-        // The loader iterates relocation blocks until the directory size is exhausted, so without this
-        // the appended block is out of range and silently skipped, leaving D3D12SDKPath dangling once
-        // ASLR relocates the image.
+        // 4. the loader needs the full directory size to relocate the SDK path pointer
         outputFile.OptionalHeader.SetDataDirectory(DataDirectoryIndex.BaseRelocationDirectory, new DataDirectory(reloc.Rva, relocBuffer.GetPhysicalSize()));
 
         // commit
